@@ -1,19 +1,23 @@
-// See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
-// for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
 
 // const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
 const {Card, Suggestion} = require('dialogflow-fulfillment');
 const fetch = require('node-fetch');
+const lodash = require('lodash');
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
 // exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
 
+const getMostPopularSession = xke => {
+    const orderedXke = lodash.orderBy(xke, ['number_of_attendees'], ['desc']);
+    return {titleOfSession: orderedXke[0].title, numberOfAttendees: orderedXke[0].number_of_attendees}
+};
+
 const fetchNextXke = async (apiToken) => {
     console.log({apiToken});
-    const result = await (await fetch('https://xke.xebia.com/api/session/2051/', {
+    const result = await (await fetch('https://xke.xebia.com/api/session/?xke=2019-04-16', {
         headers: {
             'Authorization': `Token ${apiToken}`
         }
@@ -39,9 +43,10 @@ module.exports = (request, response) => {
 
     async function showPopularXkes() {
         const xke = await fetchNextXke(request.get('API_TOKEN'));
-        agent.add(`The xke is ${JSON.stringify(xke)}`)
+        const {titleOfSession, numberOfAttendees} = getMostPopularSession(xke);
 
-    };
+        agent.add(`The most popular XKE session is ${titleOfSession} with ${numberOfAttendees} attendees.`)
+    }
 
     // // Uncomment and edit to make your own intent handler
     // // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
