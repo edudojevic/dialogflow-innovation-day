@@ -1,40 +1,30 @@
+// See https://github.com/dialogflow/dialogflow-fulfillment-nodejs
+// for Dialogflow fulfillment library docs, samples, and to report issues
 'use strict';
 
-// const functions = require('firebase-functions');
 const {WebhookClient} = require('dialogflow-fulfillment');
-const {Card, Suggestion} = require('dialogflow-fulfillment');
 const fetch = require('node-fetch');
-const lodash = require('lodash');
 
 process.env.DEBUG = 'dialogflow:debug'; // enables lib debugging statements
 
-// exports.dialogflowFirebaseFulfillment = functions.https.onRequest((request, response) => {
-
-const getMostPopularSession = xke => {
-    const orderedXke = lodash.orderBy(xke, ['number_of_attendees'], ['desc']);
-    return {titleOfSession: orderedXke[0].title, numberOfAttendees: orderedXke[0].number_of_attendees}
-};
-
-const fetchNextXke = async (apiToken) => {
-    console.log({apiToken});
-    const result = await (await fetch('https://xke.xebia.com/api/session/?xke=2019-04-16', {
+const getMostPopularSession = async (apiToken) => {
+    const result = await (await fetch('https://xke.xebia.com/api/session/?ordering=-number_of_attendees&xke=2019-04-16', {
         headers: {
             'Authorization': `Token ${apiToken}`
         }
     })).json();
-    return result;
+
+    const mostPopularSession = result[0];
+    return {titleOfSession: mostPopularSession.title, numberOfAttendees: mostPopularSession.number_of_attendees};
 };
 
-module.exports.fetchNextXke = fetchNextXke;
+module.exports.getMostPopularSession = getMostPopularSession;
 
 module.exports = (request, response) => {
+    const API_TOKEN = request.get('API_TOKEN');
     const agent = new WebhookClient({request, response});
-    // console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
-    // console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
-
-    function welcome(agent) {
-        agent.add(`Welcome to my Xebias agent!`);
-    }
+    console.log('Dialogflow Request headers: ' + JSON.stringify(request.headers));
+    console.log('Dialogflow Request body: ' + JSON.stringify(request.body));
 
     function fallback(agent) {
         agent.add(`I didn't understand`);
@@ -42,46 +32,13 @@ module.exports = (request, response) => {
     }
 
     async function showPopularXkes() {
-        const xke = await fetchNextXke(request.get('API_TOKEN'));
-        const {titleOfSession, numberOfAttendees} = getMostPopularSession(xke);
-
-        agent.add(`The most popular XKE session is ${titleOfSession} with ${numberOfAttendees} attendees.`)
+        const {titleOfSession, numberOfAttendees} = await getMostPopularSession(API_TOKEN);
+        agent.add(`The most popular XKE session is "${titleOfSession}" with ${numberOfAttendees} attendees.`)
     }
-
-    // // Uncomment and edit to make your own intent handler
-    // // uncomment `intentMap.set('your intent name here', yourFunctionHandler);`
-    // // below to get this function to be run when a Dialogflow intent is matched
-    // function yourFunctionHandler(agent) {
-    //   agent.add(`This message is from Dialogflow's Cloud Functions for Firebase editor!`);
-    //   agent.add(new Card({
-    //       title: `Title: this is a card title`,
-    //       imageUrl: 'https://developers.google.com/actions/images/badges/XPM_BADGING_GoogleAssistant_VER.png',
-    //       text: `This is the body text of a card.  You can even use line\n  breaks and emoji! 💁`,
-    //       buttonText: 'This is a button',
-    //       buttonUrl: 'https://assistant.google.com/'
-    //     })
-    //   );
-    //   agent.add(new Suggestion(`Quick Reply`));
-    //   agent.add(new Suggestion(`Suggestion`));
-    //   agent.setContext({ name: 'weather', lifespan: 2, parameters: { city: 'Rome' }});
-    // }
-
-    // // Uncomment and edit to make your own Google Assistant intent handler
-    // // uncomment `intentMap.set('your intent name here', googleAssistantHandler);`
-    // // below to get this function to be run when a Dialogflow intent is matched
-    // function googleAssistantHandler(agent) {
-    //   let conv = agent.conv(); // Get Actions on Google library conv instance
-    //   conv.ask('Hello from the Actions on Google client library!') // Use Actions on Google library
-    //   agent.add(conv); // Add Actions on Google library responses to your agent's response
-    // }
-    // // See https://github.com/dialogflow/dialogflow-fulfillment-nodejs/tree/master/samples/actions-on-google
-    // // for a complete Dialogflow fulfillment library Actions on Google client library v2 integration sample
 
     // Run the proper function handler based on the matched Dialogflow intent name
     let intentMap = new Map();
     intentMap.set('show.popular.xkes', showPopularXkes);
     intentMap.set('Default Fallback Intent', fallback);
-    // intentMap.set('your intent name here', yourFunctionHandler);
-    // intentMap.set('your intent name here', googleAssistantHandler);
     agent.handleRequest(intentMap);
 };
