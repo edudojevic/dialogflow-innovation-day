@@ -1,10 +1,10 @@
 const express = require('express');
-const dialogflowMiddleware = require('./server');
+const dialogflowMiddleware = require('./dialogflow-middleware');
 const bodyParser = require('body-parser');
 
-const app = express();
-app.use(bodyParser.json());
-app.use(dialogflowMiddleware);
-app.listen(3000, () => {
-    console.log('listening on localhost:3000')
-});
+module.exports.createApp = () => {
+  const app = express();
+  app.use(bodyParser.json());
+  app.use(dialogflowMiddleware);
+  return app;
+};
